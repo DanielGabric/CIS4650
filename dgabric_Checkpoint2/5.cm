@@ -1,0 +1,71 @@
+/*
+1. Use function that is defined after call.
+2. Use array identifier in int exp.
+3. Use empty return in a non-void function.
+4. Call a void function and catch value in variable.
+5. Use a variable that is undefined.
+6. Use array when it is an integer.
+7. Use too few arguments in a function call.
+*/
+int x[10];
+
+int minloc(int a[],int low, int high){
+    int i;
+    int x;
+    int k;
+    k=function(5);
+    x= a[(low+high)/2];
+    i = low+1;
+    k = x[i];
+    while(i<high){
+        if(a[i]<x){
+            x=a[i];
+            i=i+1;
+        }
+    }
+    return k;
+}
+
+int function(int i){
+    if(i)return;
+    return i;
+}
+
+void noReturn(void){
+    int m;
+    int n;
+    return;
+}
+
+void sort(int a[], int low, int high){
+    int i;
+    int k;
+    i=x*2;
+    while(i < high-1){
+        int t;
+        k = minloc(a,i,high);
+        t=a[k];
+        a[k]=a[i];
+        a[i]=t;
+        i=i+1;
+    }
+}
+
+void main(void){
+    int i;
+    i=noReturn();
+    i = x[a];
+
+    while(i<10){
+
+        x[i]=input();
+        i=i+1;
+
+    }
+    sort();
+    i=0;
+    while(i<10){
+        output(x[i]);
+        i=i+1;
+    }
+}

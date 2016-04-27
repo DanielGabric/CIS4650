@@ -1,0 +1,21 @@
+/* 1. Has one test for syntactic errors in the declaration list.
+   2. Has two tests of lexical errors (illegal characters).
+  */
+
+;
+int gcd(int u,int v){
+    if ( v == 0 ) return u;
+    else return gcd(v,u-u/v*v);
+
+     while(i<1)i=i+1;
+}
+&
+void main(void){
+
+     int x; int y; 
+ 
+    x = input(); y = input();
+    output(gcd(x,y)); 
+    return; 
+    \
+}

@@ -1,0 +1,24 @@
+A JFlex+Cup implementation for the C- language.
+
+  Note that you need to modify the classpath in the Makefile so that it
+will point to the directory where "java_cup" is located.  In my own setting,
+classpath is /usr/share/java/cup.jar.
+
+To build the source code, simply type in 'make' to the terminal.
+To run the compiler on source code 'example.cm', type in
+
+    "java -classpath /usr/share/java/cup.jar:. Main example.cm" 
+
+but to show the abstract syntax tree type it in with the flag -a
+    "java -classpath /usr/share/java/cup.jar:. Main -a example.cm"  
+
+but to show the symbol table type it in with the flag -s
+    "java -classpath /usr/share/java/cup.jar:. Main -s example.cm"   
+
+but to generate assembly code type it in with the flag -c
+    "java -classpath /usr/share/java/cup.jar:. Main -c example.cm" 
+
+To get rid of all generated files, type in 'make clean'.
+
+References:
+I used some of Dr. Song's code from the java_tiny file.

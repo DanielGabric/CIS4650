@@ -1,0 +1,348 @@
+/*
+Name: Daniel Gabric
+ID: 
+*/
+import java_cup.runtime.*;
+import ast.*;
+import java.util.*;
+
+parser code {:
+    public static boolean isAbstract;
+    public static boolean isSymbol;
+    public static boolean isCode;
+    public static String name;
+
+    public void report_error(String message, Object info) {
+   
+        StringBuffer m = new StringBuffer("Error");
+   
+        if (info instanceof Symbol) {
+
+            Symbol s = ((Symbol) info);
+   
+            if (s.left >= 0) {                
+
+                m.append(" in line "+(s.left+1));   
+
+                if (s.right >= 0)                    
+
+                    m.append(", column "+(s.right+1));
+            }
+        }
+
+        m.append(" : "+message);
+
+        System.err.println(m);
+    }
+   
+    public void report_fatal_error(String message, Object info) {
+        report_error(message, info);
+        System.exit(1);
+    }
+:};
+
+
+terminal IF, WHILE, ELSE, VOID, INT, RETURN;
+terminal EQUIVALENT, EQ, LT, GT, PLUS, MINUS, TIMES, OVER, SEMI, COMMA;
+terminal LEQ, GEQ, NEQ;
+terminal LPAREN, RPAREN, LBRACK, RBRACK, LSQUARE, RSQUARE;
+terminal String ID, NUM;
+
+
+
+non terminal ExpList  statement_list, args;
+non terminal VarDecList param_list, local_declarations;
+non terminal DecList program,declaration_list;
+non terminal Dec declaration, fun_declaration;
+non terminal Exp simple_expression, compound_stmt, statement, expression_stmt, selection_stmt, iteration_stmt, return_stmt;
+non terminal Exp expression, math_expression, call;
+non terminal Var var;
+non terminal VarDec param, var_declaration;
+non terminal NameTy type_specifier;
+non terminal operation;
+
+
+precedence nonassoc EQUIVALENT, LT, GT, LEQ, GEQ, NEQ;
+precedence left PLUS, MINUS;
+precedence left TIMES, OVER;
+precedence right EQ;
+
+
+program             ::= declaration_list:s
+                         {: 
+
+                            RESULT = s;
+                            if(parser.isAbstract){
+                                System.out.println( "The abstract syntax tree is:" );
+                                Ast.showTree( RESULT, 0 );
+                            }
+
+                            new Semantic(RESULT,parser.isSymbol);
+                            
+                            if(parser.isCode)
+                                new CodeGeneration(RESULT,parser.name);
+                         :}
+                        ;
+
+declaration_list    ::= declaration_list:s1 declaration:s2 
+                         {: 
+                            DecList d = s1;
+                            d.add(s2);
+                            RESULT = d;
+                         :}
+                      | declaration:s
+                         {: 
+                            DecList d1 = new DecList();
+                            d1.add(s);
+                            RESULT = d1;
+                         :}
+                      | error:ee 
+                         {: 
+                            parser.report_error("Invalid structure in list of declarations (Dec-List).", ee); 
+                            DecList d2 = new DecList();
+                            d2.add(new ErrorDecNode(eeleft));
+                            RESULT = d2;
+                         :}
+
+                        ;
+
+declaration         ::= var_declaration:v
+                         {: RESULT = v;
+                         :}
+                      | fun_declaration:f
+                         {: RESULT = f;
+                         :}
+                        ;
+
+var_declaration     ::= type_specifier:t ID:i SEMI
+                         {: RESULT = new SimpleDec(tleft,t,i);
+                         :}
+                      | type_specifier:t1 ID:i1 LSQUARE NUM:n RSQUARE SEMI
+                         {: RESULT = new ArrayDec(t1left, t1, i1, new IntExp(nleft, n));
+                         :}
+                        ;
+
+type_specifier      ::= INT:m
+                         {: RESULT = new NameTy(mleft, NameTy.INT);
+                         :}
+                      | VOID:n
+                         {: RESULT = new NameTy(nleft, NameTy.VOID);
+                         :}
+                        ;
+
+fun_declaration     ::= type_specifier:t ID:i LPAREN param_list:p RPAREN compound_stmt:c
+                         {: RESULT = new FunctionDec(tleft,t,i,p,c);
+                         :}
+                      | type_specifier:t1 ID:i1 LPAREN VOID RPAREN compound_stmt:c1
+                         {: RESULT = new FunctionDec(t1left,t1,i1,null,c1);
+                         :}
+                        ;
+
+param_list          ::= param_list:p COMMA param:d
+                         {: VarDecList v = p;
+                            while(v.tail != null)
+                                v = v.tail;
+                            v.tail = new VarDecList(d,null);
+                            RESULT = p;
+                         :}
+                      | param:p1
+                         {: RESULT = new VarDecList(p1,null);
+                         :}
+                      | error:e 
+                         {: 
+                            parser.report_error("Invalid structure in parameter list of a function call (Param-List).", e); 
+                            RESULT = new VarDecList(new ErrorVarDecNode(eleft), null); 
+                         :}
+                        ;
+
+param               ::= type_specifier:t ID:i
+                         {: RESULT = new SimpleDec(tleft,t,i);
+                         :}
+                      | type_specifier:t1 ID:i1 LSQUARE RSQUARE
+                         {: RESULT = new ArrayDec(t1left,t1,i1,null);
+                         :}
+                        ;
+
+compound_stmt       ::= LBRACK:l local_declarations:ld statement_list:sl RBRACK
+                         {: RESULT = new CompoundExp(lleft,ld,sl);
+                         :}
+                      | LBRACK:l1 local_declarations:ld1 RBRACK
+                         {: RESULT = new CompoundExp(l1left,ld1,null);
+                         :}
+                      | LBRACK:l2 statement_list:sl2 RBRACK
+                         {: RESULT = new CompoundExp(l2left,null,sl2);
+                         :}
+                      | LBRACK:l3 RBRACK
+                         {: RESULT = new CompoundExp(l3left,null,null);
+                         :}
+                        ;
+
+local_declarations  ::= local_declarations:one var_declaration:two
+                         {: VarDecList v = one;
+                            while(v.tail != null)
+                                v = v.tail;
+                            v.tail = new VarDecList(two,null);
+                            RESULT = one;
+                         :}
+                      | var_declaration:two1
+                         {: RESULT = new VarDecList(two1,null);
+                         :}
+                      | error:e var_declaration:s3
+                         {: parser.report_error("Invalid structure in variable declarations (VarDec-List).", e); 
+                            RESULT = new VarDecList(s3, null); 
+                         :}
+                        ;
+
+statement_list      ::= statement_list:stl statement:st
+                         {: ExpList v = stl;
+                            while(v.tail != null)
+                                v = v.tail;
+                            v.tail = new ExpList(st,null);
+                            RESULT = stl;
+                         :}
+                      | statement:st1
+                         {: RESULT = new ExpList(st1,null);
+                         :}
+                      | error:ee  
+                         {: parser.report_error("Invalid structuring of list of statements (Exp-List).", ee); 
+                            RESULT = new ExpList(new ErrorExpNode(eeleft), null); 
+                         :}
+                        ;
+
+statement           ::= expression_stmt:e
+                         {: RESULT = e;
+                         :}
+                      | compound_stmt:c
+                         {: RESULT = c;
+                         :}
+                      | selection_stmt:s
+                         {: RESULT = s;
+                         :}
+                      | iteration_stmt:i
+                         {: RESULT = i;
+                         :}
+                      | return_stmt:r
+                         {: RESULT = r;
+                         :}
+                        ;
+
+expression_stmt     ::= expression:e SEMI
+                         {: RESULT = e;
+                         :}
+                      | SEMI:s1
+                         {: RESULT = new NilExp(s1left);
+                         :}
+                        ;
+
+selection_stmt      ::= IF:i LPAREN expression:e RPAREN statement:s
+                         {: RESULT = new IfExp(ileft, e,s,new NilExp(sleft));
+                         :}
+                      | IF:i1 LPAREN expression:e1 RPAREN statement:s1 ELSE statement:s2
+                         {: RESULT = new IfExp(i1left, e1, s1, s2);
+                         :}
+                        ;
+
+iteration_stmt      ::= WHILE:w LPAREN expression:e RPAREN statement:s
+                         {: RESULT = new WhileExp(wleft,e,s);
+                         :}
+                        ;
+
+return_stmt         ::= RETURN:e SEMI
+                         {: RESULT = new ReturnExp(eleft,null);
+                         :}
+                      | RETURN:r expression:e SEMI
+                         {: RESULT = new ReturnExp(rleft,e);
+                         :}
+                        ;
+
+expression          ::= var:v EQ expression:e
+                         {: RESULT = new AssignExp(vleft, v, e);
+                         :}
+                      | simple_expression:s
+                         {: RESULT = s;
+                         :}
+                        ; 
+
+var                 ::= ID:i
+                         {: RESULT = new SimpleVar(ileft,i);
+                         :}
+                      | ID:i1 LSQUARE expression:e RSQUARE
+                         {: RESULT = new IndexVar(i1left, i1, e);
+                         :}
+                        ;
+
+simple_expression   ::= math_expression:m
+                         {: RESULT = m;
+                         :}
+                        ;
+
+math_expression     ::= math_expression:m PLUS math_expression:e
+                         {: RESULT = new OpExp(mleft, m, OpExp.PLUS, e);
+                         :}
+                      | math_expression:m1 MINUS math_expression:e1
+                         {: RESULT = new OpExp(m1left, m1, OpExp.MINUS, e1);
+                         :}
+                      | math_expression:m2 TIMES math_expression:e2
+                         {: RESULT = new OpExp(m2left, m2, OpExp.TIMES, e2);
+                         :}
+                      | math_expression:m3 OVER math_expression:e3
+                         {: RESULT = new OpExp(m3left, m3, OpExp.OVER, e3);
+                         :}                      
+                      | math_expression:m4 EQUIVALENT math_expression:e4
+                         {: RESULT = new OpExp(m4left, m4, OpExp.EQUIVALENT, e4);
+                         :}
+                      | math_expression:m5 LT math_expression:e5
+                         {: RESULT = new OpExp(m5left, m5, OpExp.LT, e5);
+                         :}
+                      | math_expression:m6 GT math_expression:e6
+                         {: RESULT = new OpExp(m6left, m6, OpExp.GT, e6);
+                         :}
+                      | math_expression:m7 GEQ math_expression:e7
+                         {: RESULT = new OpExp(m7left, m7, OpExp.GEQ, e7);
+                         :}
+                      | math_expression:m8 LEQ math_expression:e8
+                         {: RESULT = new OpExp(m8left, m8, OpExp.LEQ, e8);
+                         :}                      
+                      | math_expression:m9 NEQ math_expression:e9
+                         {: RESULT = new OpExp(m9left, m9, OpExp.NEQ, e9);
+                         :}
+                      | LPAREN math_expression:m10 RPAREN
+                         {: RESULT = m10;
+                         :}
+                      | var:v
+                         {: RESULT = new VarExp(vleft,v);
+                         :}
+                      | call:c
+                         {: RESULT = c;
+                         :}
+                      | NUM:n
+                         {: RESULT = new IntExp(nleft, n);
+                         :}
+                        ;
+
+call                ::= ID:i LPAREN args:a RPAREN
+                         {: RESULT = new CallExp(ileft, i, a);
+                         :}
+                      | ID:i1 LPAREN RPAREN
+                         {: RESULT = new CallExp(i1left, i1, null);
+                         :}
+
+                        ;
+
+args                ::= args:a COMMA expression:e
+                         {: ExpList v = a;
+                            while(v.tail != null)
+                                v = v.tail;
+                            v.tail = new ExpList(e,null);
+                            RESULT = a;
+                         :}
+                      | expression:e1
+                         {: RESULT = new ExpList(e1,null);
+                         :}
+                      | error:e2
+                         {: parser.report_error("Using non-comma delimitters (Args-List).", e2); 
+                            RESULT = new ExpList(new ErrorExpNode(e2left), null); 
+                         :}
+
+                        ;
+
